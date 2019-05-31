@@ -32,6 +32,39 @@ def my_random(numb):
     return -numb + (numb + numb) * random()
 
 
+class Rectangle:
+    def __init__(self, color, data, outline=0, background_color=theme_color):
+        self.color = color
+        self.data = data
+        self.outline = outline
+        self.background_color = list(background_color)
+        self.fill_speed = 3
+        self.max = 150
+        self.update_color = background_color
+
+    def update(self):
+        self.background_color = list(self.update_color)
+
+    def draw(self):
+        pygame.draw.rect(win, self.background_color, self.data)
+        pygame.draw.rect(win, self.color, self.data, self.outline)
+
+    def clicked(self, cords):
+        return (self.data[0] <= cords[0] <= self.data[0] + self.data[2] and
+                self.data[1] <= cords[1] <= self.data[1] + self.data[3])
+
+    def is_in(self, cords):
+        if (self.data[0] <= cords[0] <= self.data[0] + self.data[2] and
+                self.data[1] <= cords[1] <= self.data[1] + self.data[3]):
+            self.background_color[0] = min(self.background_color[0] + self.fill_speed, self.max)
+            self.background_color[1] = min(self.background_color[1] + self.fill_speed, self.max)
+            self.background_color[2] = min(self.background_color[2] + self.fill_speed, self.max)
+        else:
+            self.background_color[0] = max(self.background_color[0] - self.fill_speed, 0)
+            self.background_color[1] = max(self.background_color[1] - self.fill_speed, 0)
+            self.background_color[2] = max(self.background_color[2] - self.fill_speed, 0)
+
+
 class StarBackground:
     class Star:
         def __init__(self):
@@ -128,21 +161,26 @@ class ExitButton:
         self.color = color
         self.outline = outline
         self.alpha = this_alpha
-        self.x1 = this_alpha * 2
-        self.y1 = height // (this_alpha ** 2)
-        self.x2 = width // (2 * this_alpha)
-        self.y2 = height // (2 * this_alpha)
+        self.x = this_alpha * 2
+        self.y = height // (this_alpha ** 2)
+        self.width = width // (2 * this_alpha) - self.x
+        self.height = height // (2 * this_alpha) - self.y
+        self.rectangle = Rectangle(self.color, (self.x, self.y, self.width, self.height),
+                                   self.outline)
 
     def draw(self):
-        pygame.draw.polygon(win, self.color, [(self.x1, self.y1),
-                                              (self.x1, self.y2),
-                                              (self.x2, self.y2),
-                                              (self.x2, self.y1)], self.outline)
-        free_space = self.y2 - self.y1 - 2 * self.alpha
+        self.rectangle.draw()
+        free_space = self.height - 2 * self.alpha
         for i in range(2):
-            pygame.draw.line(win, self.color, (self.x1 + self.alpha, self.y1 + self.alpha + free_space * i),
-                                              (self.x2 - self.alpha, self.y1 + self.alpha + free_space * i),
+            pygame.draw.line(win, self.color, (self.x + self.alpha, self.y + self.alpha + free_space * i),
+                                              (self.x + self.width - self.alpha, self.y + self.alpha + free_space * i),
                              self.outline)
+
+    def clicked(self, cords):
+        return self.rectangle.clicked(cords)
+
+    def is_in(self, cords):
+        self.rectangle.is_in(cords)
 
 
 class InfoPage:
@@ -167,8 +205,7 @@ class InfoPage:
         self.exit_button.draw()
 
     def click(self, cords):
-        if (self.exit_button.x1 <= cords[0] <= self.exit_button.x2 and
-                self.exit_button.y1 <= cords[1] <= self.exit_button.y2):
+        if self.exit_button.clicked(cords):
             return "Pause"
         return ""
 
@@ -176,6 +213,9 @@ class InfoPage:
     def button_pressed(pressed_data: dict):
         del pressed_data
         return ""
+
+    def update(self):
+        self.exit_button.rectangle.update()
 
 
 class RestartPage:
@@ -193,7 +233,7 @@ class RestartPage:
 
     def new_cords(self):
         self.x = randint(0, width - self.width)
-        self.y = randint(self.exit_button.y2, height - self.height)
+        self.y = randint(self.exit_button.y + self.exit_button.height, height - self.height)
 
     def draw(self):
         win.fill(self.background)
@@ -210,10 +250,10 @@ class RestartPage:
     def update(self):
         self.text = None
         self.count = 0
+        self.exit_button.rectangle.update()
 
     def click(self, cords):
-        if (self.exit_button.x1 <= cords[0] <= self.exit_button.x2 and
-                self.exit_button.y1 <= cords[1] <= self.exit_button.y2):
+        if self.exit_button.clicked(cords):
             return "Pause"
         elif self.x <= cords[0] <= self.x + self.width and self.y <= cords[1] <= self.y + self.height:
             self.count += 1
@@ -289,8 +329,7 @@ class GamePage:
         self.cookie.draw()
 
     def click(self, cords):
-        if (self.exit_button.x1 <= cords[0] <= self.exit_button.x2 and
-                self.exit_button.y1 <= cords[1] <= self.exit_button.y2):
+        if self.exit_button.clicked(cords):
             return "Pause"
         self.cookie.check_in(cords)
         return ""
@@ -301,6 +340,9 @@ class GamePage:
         elif pressed_data[pygame.K_f]:
             self.bar.fill()
         return ""
+
+    def update(self):
+        self.exit_button.background_color = list(theme_color)
 
 
 class MainMenu:
@@ -317,9 +359,16 @@ class MainMenu:
                         ["Info"],
                         ["Exit"]]
         for i in range(len(self.buttons)):
-            self.buttons[i].extend([width // 2 - self.average_width // 2,
-                                    (height - 2 * self.top_space - self.average_height - 2 * self.outline) //
-                                    (len(self.buttons) - 1) * i + 2 * self.top_space - self.average_height // 3])
+            # self.buttons[i].extend([width // 2 - self.average_width // 2,
+            #                         (height - 2 * self.top_space - self.average_height - 2 * self.outline) //
+            #                         (len(self.buttons) - 1) * i + 2 * self.top_space - self.average_height // 3])
+            x = width // 2 - self.average_width // 2
+            y = ((height - 2 * self.top_space - self.average_height - 2 * self.outline) //
+                 (len(self.buttons) - 1) * i + 2 * self.top_space - self.average_height // 3)
+            self.buttons[i] = [self.buttons[i][0], Rectangle(self.color, [x, y,
+                                                                          self.average_width,
+                                                                          self.average_height],
+                                                             self.outline)]
 
     def draw(self):
         win.fill(self.background)
@@ -330,11 +379,11 @@ class MainMenu:
         text_rect.center = (width // 2, self.top_space)
         win.blit(text_surface, text_rect)
         my_font = pygame.font.SysFont('Comic Sans MS', int(self.average_height * 0.65))
-        for text, x, y in self.buttons:
-            pygame.draw.rect(win, self.color, (x, y, self.average_width, self.average_height), self.outline)
+        for text, rect in self.buttons:
+            rect.draw()
             text_surface = my_font.render(text, False, self.color)
             text_rect = text_surface.get_rect()
-            text_rect.center = (x + self.average_width // 2, y + self.average_height // 2)
+            text_rect.center = (rect.data[0] + self.average_width // 2, rect.data[1] + self.average_height // 2)
             win.blit(text_surface, text_rect)
 
     @staticmethod
@@ -343,10 +392,18 @@ class MainMenu:
         return ""
 
     def click(self, cords) -> str:
-        for text, x, y in self.buttons:
-            if x <= cords[0] <= x + self.average_width and y <= cords[1] <= y + self.average_height:
+        for text, rect in self.buttons:
+            if rect.clicked(cords):
                 return text
         return ""
+
+    def is_in(self, cords):
+        for text, rect in self.buttons:
+            rect.is_in(cords)
+
+    def update(self):
+        for text, rect in self.buttons:
+            rect.update()
 
 
 class PagesStructure:
@@ -375,23 +432,34 @@ class PagesStructure:
                 mainloop = False
             elif action == "Play":
                 self.this_page = self.game_page
+                self.this_page.update()
             elif action == "Info":
                 self.this_page = self.info_page
+                self.this_page.update()
             elif action == "Restart":
                 self.this_page = self.restart_page
                 self.this_page.update()
         elif type(self.this_page) == GamePage:
             if action == "Pause":
                 self.this_page = self.main_menu
+                self.this_page.update()
         elif type(self.this_page) == InfoPage:
             if action == "Pause":
                 self.this_page = self.main_menu
+                self.this_page.update()
         elif type(self.this_page) == RestartPage:
             if action == "Pause":
                 self.this_page = self.main_menu
+                self.this_page.update()
 
     def draw(self):
         self.this_page.draw()
+
+    def mouse_in(self, cords):
+        if type(self.this_page) != MainMenu:
+            self.this_page.exit_button.is_in(cords)
+        elif type(self.this_page) == MainMenu:
+            self.this_page.is_in(cords)
 
 
 class MouseClicksChecker:
@@ -448,6 +516,7 @@ while mainloop:
     mouse_cords = pygame.mouse.get_pos()
     if clicker.condition(left):
         navigator.click(mouse_cords)
+    navigator.mouse_in(mouse_cords)
     navigator.draw()
     pygame.display.flip()
     clock.tick(fps)
