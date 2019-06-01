@@ -2,6 +2,7 @@ import pygame
 from random import randint, random
 from os.path import join
 from os import getcwd, listdir
+from time import time
 import pickle
 import ctypes
 # init
@@ -22,6 +23,7 @@ width, height = screensize
 fps = 120
 theme_color = (0, 0, 0)
 lines_color = (255, 255, 255)
+next_level_color = (0, 255, 0)
 
 clock = pygame.time.Clock()
 win = pygame.display.set_mode((width, height), pygame.FULLSCREEN)
@@ -38,7 +40,7 @@ class Rectangle:
         self.data = data
         self.outline = outline
         self.background_color = list(background_color)
-        self.fill_speed = 3
+        self.fill_speed = 4
         self.max = 150
         self.update_color = background_color
 
@@ -142,10 +144,16 @@ class ProgressBar:
     def fill(self):
         self.progress += self.speed
 
+    def clicked(self, cords):
+        return self.x1 <= cords[0] <= self.x2 and self.y1 <= cords[1] <= self.y2
+
     def draw(self):
-        if self.progress > self.limit:
-            self.progress = 0
         x_border = self.x1 + int(abs(self.x2 - self.x1) * (self.progress / self.limit))
+        if self.progress >= self.limit:
+            x_border = self.x2
+            self.color = next_level_color
+        else:
+            self.color = lines_color
         pygame.draw.polygon(win, self.color, [(self.x1, self.y1),
                                               (self.x1, self.y2),
                                               (x_border, self.y2),
@@ -193,15 +201,15 @@ class InfoPage:
         win.fill(self.background)
         start_background.draw()
         my_font = pygame.font.SysFont('Comic Sans MS', width // 20)
-        text_surface = my_font.render("I am lazy af, so all info in info.txt", False, self.color)
+        text_surface = my_font.render("I am lazy, so all info in info.txt", False, self.color)
         text_rect = text_surface.get_rect()
         text_rect.center = (width // 2, height // 2)
         win.blit(text_surface, text_rect)
-        my_font = pygame.font.SysFont('Comic Sans MS', width // 20)
-        text_surface = my_font.render("(btw u r gay)", False, self.color)
-        text_rect = text_surface.get_rect()
-        text_rect.center = (width // 2, height // 4 * 3)
-        win.blit(text_surface, text_rect)
+        # my_font = pygame.font.SysFont('Comic Sans MS', width // 20)
+        # text_surface = my_font.render("(btw u r gay)", False, self.color)
+        # text_rect = text_surface.get_rect()
+        # text_rect.center = (width // 2, height // 4 * 3)
+        # win.blit(text_surface, text_rect)
         self.exit_button.draw()
 
     def click(self, cords):
@@ -290,17 +298,24 @@ class Cookie:
         self.radius = width // 10
         self.x = width // 2
         self.y = height // 2
+        self.last = time()
+        self.default = 1
 
     def next_level(self):
-        self.score = 0
+        self.score = self.score - self.limit
         self.speed += 1
         self.limit = int(self.limit * self.alpha)
         self.alpha += self.alpha * 0.05
 
     def draw(self):
         pygame.draw.circle(win, self.color, (self.x, self.y), self.radius)
+        if time() - self.last >= 1:
+            self.last = time()
+            self.score += self.speed
+            # if self.score > self.limit:
+            #     self.next_level()
         my_font = pygame.font.SysFont('Comic Sans MS', width // 20)
-        text_surface = my_font.render(f"{self.score}/{self.limit}", False, self.color)
+        text_surface = my_font.render(f"{self.score}", False, self.color)
         text_rect = text_surface.get_rect()
         text_rect.center = (width // 2, height // 4)
         win.blit(text_surface, text_rect)
@@ -308,8 +323,8 @@ class Cookie:
     def check_in(self, cords):
         if (cords[0] - self.x) ** 2 + (cords[1] - self.y) ** 2 <= self.radius ** 2:
             self.score += self.speed
-            if self.score > self.limit:
-                self.next_level()
+            # if self.score > self.limit:
+            #     self.next_level()
 
 
 class GamePage:
@@ -331,6 +346,9 @@ class GamePage:
     def click(self, cords):
         if self.exit_button.clicked(cords):
             return "Pause"
+        elif self.bar.clicked(cords):
+            if self.cookie.score >= self.cookie.limit:
+                self.cookie.next_level()
         self.cookie.check_in(cords)
         return ""
 
@@ -338,7 +356,7 @@ class GamePage:
         if pressed_data[pygame.K_ESCAPE]:
             return "Pause"
         elif pressed_data[pygame.K_f]:
-            self.bar.fill()
+            self.cookie.score += self.cookie.limit // 4
         return ""
 
     def update(self):
