@@ -1,2 +1,2 @@
-# PyClicker
-Fullscreen clicker on Python
+# Lambda's puzzles
+Fullscreen puzzle game on Python
