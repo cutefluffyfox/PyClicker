@@ -1,7 +1,12 @@
-import pickle
-file = open('store.pckl', 'wb')
-pickle.dump(0, file)  # score
-pickle.dump(100, file)  # limit
-pickle.dump(1, file)  # speed
-pickle.dump(1.7, file)  # alpha
-file.close()
+from pickle import dump
+
+
+def new_game():
+    file = open('store.pckl', 'wb')
+    dump(60, file)  # fps
+    dump(0.5, file)  # volume
+    file.close()
+
+
+if __name__ == "__main__":
+    new_game()
